@@ -1,0 +1,277 @@
+#!/usr/bin/env python3
+"""
+IIoT Data Format Unification Solution for Daikibo Industrials
+This script handles the conversion and unification of two different telemetry data formats
+into a single standardized format for comprehensive manufacturing process analysis.
+"""
+
+import json
+import datetime
+from typing import Dict, Any, List
+from datetime import datetime as dt
+
+
+def parse_iso_timestamp_to_milliseconds(iso_timestamp: str) -> int:
+    """
+    Convert ISO format timestamp to milliseconds since epoch.
+    
+    Args:
+        iso_timestamp (str): ISO format timestamp (e.g., "2023-01-01T12:00:00Z")
+    
+    Returns:
+        int: Timestamp in milliseconds since epoch
+    
+    Reference: https://stackoverflow.com/questions/127803/how-to-parse-an-iso-8601-formatted-date
+    """
+    # Parse ISO timestamp and convert to milliseconds
+    try:
+        # Handle various ISO formats (with or without 'Z', with or without microseconds)
+        if iso_timestamp.endswith('Z'):
+            iso_timestamp = iso_timestamp[:-1] + '+00:00'
+        
+        # Parse the datetime
+        parsed_dt = dt.fromisoformat(iso_timestamp)
+        
+        # Convert to milliseconds since epoch
+        return int(parsed_dt.timestamp() * 1000)
+    except Exception as e:
+        print(f"Error parsing timestamp {iso_timestamp}: {e}")
+        return 0
+
+
+def convert_format_1_to_unified(data_format_1: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    IMPLEMENT: Convert data format 1 to unified format.
+    
+    Assumes format 1 already has millisecond timestamps and needs structural transformation.
+    
+    Args:
+        data_format_1 (dict): Input data in format 1
+    
+    Returns:
+        dict: Data converted to unified format
+    """
+    
+    # IMPLEMENT: Transform format 1 data structure to match target unified format
+    # Assuming format 1 has the correct timestamp format (milliseconds)
+    # but may have different field names or structure
+    
+    unified_data = {
+        "deviceId": data_format_1.get("device_id", data_format_1.get("deviceId", "")),
+        "timestamp": data_format_1.get("timestamp", data_format_1.get("ts", 0)),
+        "location": {
+            "facility": data_format_1.get("facility", data_format_1.get("location", {}).get("facility", "")),
+            "line": data_format_1.get("production_line", data_format_1.get("location", {}).get("line", "")),
+            "station": data_format_1.get("station", data_format_1.get("location", {}).get("station", ""))
+        },
+        "metrics": {
+            "temperature": data_format_1.get("temp", data_format_1.get("metrics", {}).get("temperature", 0)),
+            "pressure": data_format_1.get("pressure", data_format_1.get("metrics", {}).get("pressure", 0)),
+            "vibration": data_format_1.get("vibration", data_format_1.get("metrics", {}).get("vibration", 0)),
+            "efficiency": data_format_1.get("efficiency", data_format_1.get("metrics", {}).get("efficiency", 0))
+        },
+        "status": data_format_1.get("operational_status", data_format_1.get("status", "unknown")),
+        "alerts": data_format_1.get("alerts", data_format_1.get("warnings", []))
+    }
+    
+    return unified_data
+
+
+def convert_format_2_to_unified(data_format_2: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    IMPLEMENT: Convert data format 2 to unified format.
+    
+    Assumes format 2 has ISO timestamps that need conversion to milliseconds.
+    
+    Args:
+        data_format_2 (dict): Input data in format 2
+    
+    Returns:
+        dict: Data converted to unified format
+    """
+    
+    # IMPLEMENT: Transform format 2 data structure to match target unified format
+    # Convert ISO timestamp to milliseconds and restructure data
+    
+    # Convert ISO timestamp to milliseconds
+    iso_timestamp = data_format_2.get("timestamp", data_format_2.get("time", ""))
+    timestamp_ms = parse_iso_timestamp_to_milliseconds(iso_timestamp) if iso_timestamp else 0
+    
+    unified_data = {
+        "deviceId": data_format_2.get("sensor_id", data_format_2.get("deviceId", "")),
+        "timestamp": timestamp_ms,
+        "location": {
+            "facility": data_format_2.get("plant", data_format_2.get("location", {}).get("facility", "")),
+            "line": data_format_2.get("line_number", data_format_2.get("location", {}).get("line", "")),
+            "station": data_format_2.get("work_station", data_format_2.get("location", {}).get("station", ""))
+        },
+        "metrics": {
+            "temperature": data_format_2.get("temperature_c", data_format_2.get("metrics", {}).get("temperature", 0)),
+            "pressure": data_format_2.get("pressure_bar", data_format_2.get("metrics", {}).get("pressure", 0)),
+            "vibration": data_format_2.get("vibration_hz", data_format_2.get("metrics", {}).get("vibration", 0)),
+            "efficiency": data_format_2.get("oee", data_format_2.get("metrics", {}).get("efficiency", 0))
+        },
+        "status": data_format_2.get("machine_state", data_format_2.get("status", "unknown")),
+        "alerts": data_format_2.get("error_codes", data_format_2.get("alerts", []))
+    }
+    
+    return unified_data
+
+
+def process_telemetry_data(input_data: List[Dict[str, Any]], data_format: str) -> List[Dict[str, Any]]:
+    """
+    Process a list of telemetry data records and convert them to unified format.
+    
+    Args:
+        input_data (list): List of telemetry data records
+        data_format (str): Format type ("format1" or "format2")
+    
+    Returns:
+        list: List of records in unified format
+    """
+    
+    unified_data = []
+    
+    for record in input_data:
+        try:
+            if data_format == "format1":
+                unified_record = convert_format_1_to_unified(record)
+            elif data_format == "format2":
+                unified_record = convert_format_2_to_unified(record)
+            else:
+                print(f"Unknown data format: {data_format}")
+                continue
+            
+            unified_data.append(unified_record)
+            
+        except Exception as e:
+            print(f"Error processing record: {e}")
+            continue
+    
+    return unified_data
+
+
+def main():
+    """
+    Main function to demonstrate the data unification process.
+    In a real implementation, this would read from the actual data files.
+    """
+    
+    # Example data format 1 (assuming millisecond timestamps)
+    sample_data_1 = [
+        {
+            "device_id": "SENSOR_001",
+            "timestamp": 1672574400000,  # milliseconds
+            "facility": "Tokyo_Main",
+            "production_line": "Line_A",
+            "station": "Station_1",
+            "temp": 75.5,
+            "pressure": 2.3,
+            "vibration": 0.12,
+            "efficiency": 0.87,
+            "operational_status": "running",
+            "alerts": []
+        }
+    ]
+    
+    # Example data format 2 (with ISO timestamps)
+    sample_data_2 = [
+        {
+            "sensor_id": "DEVICE_002",
+            "timestamp": "2023-01-01T12:00:00Z",  # ISO format
+            "plant": "Tokyo_Main",
+            "line_number": "Line_B",
+            "work_station": "Station_2",
+            "temperature_c": 68.2,
+            "pressure_bar": 1.8,
+            "vibration_hz": 0.08,
+            "oee": 0.92,
+            "machine_state": "operational",
+            "error_codes": ["WARN_001"]
+        }
+    ]
+    
+    # Process both formats
+    print("Processing Format 1 data...")
+    unified_1 = process_telemetry_data(sample_data_1, "format1")
+    
+    print("Processing Format 2 data...")
+    unified_2 = process_telemetry_data(sample_data_2, "format2")
+    
+    # Combine all unified data
+    all_unified_data = unified_1 + unified_2
+    
+    # Output results
+    print("\n=== UNIFIED DATA OUTPUT ===")
+    for i, record in enumerate(all_unified_data):
+        print(f"\nRecord {i + 1}:")
+        print(json.dumps(record, indent=2))
+    
+    print(f"\nSuccessfully unified {len(all_unified_data)} telemetry records")
+    print("Data is now ready for comprehensive analysis across Daikibo's manufacturing processes")
+
+
+def run_tests():
+    """
+    Simple test function to validate the conversion functions.
+    """
+    
+    print("Running tests...")
+    
+    # Test timestamp conversion
+    iso_timestamp = "2023-01-01T12:00:00Z"
+    ms_timestamp = parse_iso_timestamp_to_milliseconds(iso_timestamp)
+    expected_ms = 1672574400000  # Jan 1, 2023 12:00:00 UTC in milliseconds
+    
+    assert ms_timestamp == expected_ms, f"Timestamp conversion failed: {ms_timestamp} != {expected_ms}"
+    print("✓ Timestamp conversion test passed")
+    
+    # Test format conversions
+    test_data_1 = {
+        "device_id": "TEST_001",
+        "timestamp": 1672574400000,
+        "facility": "Test_Facility",
+        "production_line": "Test_Line",
+        "station": "Test_Station",
+        "temp": 75.0,
+        "pressure": 2.0,
+        "vibration": 0.1,
+        "efficiency": 0.9,
+        "operational_status": "running",
+        "alerts": []
+    }
+    
+    test_data_2 = {
+        "sensor_id": "TEST_002",
+        "timestamp": "2023-01-01T12:00:00Z",
+        "plant": "Test_Facility",
+        "line_number": "Test_Line",
+        "work_station": "Test_Station",
+        "temperature_c": 75.0,
+        "pressure_bar": 2.0,
+        "vibration_hz": 0.1,
+        "oee": 0.9,
+        "machine_state": "running",
+        "error_codes": []
+    }
+    
+    unified_1 = convert_format_1_to_unified(test_data_1)
+    unified_2 = convert_format_2_to_unified(test_data_2)
+    
+    # Verify unified format structure
+    required_keys = ["deviceId", "timestamp", "location", "metrics", "status", "alerts"]
+    
+    for key in required_keys:
+        assert key in unified_1, f"Missing key in format 1 conversion: {key}"
+        assert key in unified_2, f"Missing key in format 2 conversion: {key}"
+    
+    print("✓ Format conversion tests passed")
+    print("✓ All tests completed successfully!")
+
+
+if __name__ == "__main__":
+    # Run tests first
+    run_tests()
+    
+    # Then run main demonstration
+    main()
